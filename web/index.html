@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Waste Sorter</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0f1117;
+      --surface: #1a1d27;
+      --border:  #2e3248;
+      --accent:  #4f9cf9;
+      --text:    #e2e8f0;
+      --muted:   #64748b;
+      --ok:      #22c55e;
+      --warn:    #f59e0b;
+      --err:     #ef4444;
+      --radius:  10px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      padding: 16px;
+    }
+
+    h1 { font-size: 1.3rem; font-weight: 700; letter-spacing: 0.04em; margin-bottom: 14px; }
+    h2 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase;
+         letter-spacing: 0.08em; color: var(--muted); margin-bottom: 8px; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      grid-template-rows: auto auto;
+      gap: 16px;
+      max-width: 1100px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    /* ── Camera stream ─────────────────────────────────────────────── */
+    #stream-card { grid-row: 1 / 3; }
+    #stream {
+      width: 100%;
+      aspect-ratio: 4/3;
+      object-fit: contain;
+      background: #000;
+      border-radius: 6px;
+      display: block;
+    }
+
+    /* ── Status pill ───────────────────────────────────────────────── */
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .pill {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 99px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      background: var(--border);
+      color: var(--text);
+    }
+    .pill.IDLE       { background: #334155; }
+    .pill.PRESENT    { background: #0e4f8a; }
+    .pill.STABLE     { background: #065f46; }
+    .pill.CLASSIFY   { background: #78350f; }
+    .pill.DECIDE     { background: #14532d; }
+    .pill.WAIT_CLEAR { background: #312e81; }
+
+    #fps-badge { font-size: 0.75rem; color: var(--muted); margin-left: auto; }
+    #state-message { margin-top: 8px; min-height: 1.5em; color: var(--warn); font-weight: 600; }
+
+    /* ── Last decision ─────────────────────────────────────────────── */
+    #last-label {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      line-height: 1.1;
+    }
+    #last-conf  { font-size: 0.85rem; color: var(--muted); margin-top: 2px; }
+    .uncertain  { color: var(--warn); }
+    .certain    { color: var(--ok); }
+
+    /* ── Controls ──────────────────────────────────────────────────── */
+    .control-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    label.slider-label { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+    input[type=range] {
+      flex: 1;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    #threshold-val { font-size: 0.8rem; width: 36px; text-align: right; }
+
+    button {
+      padding: 6px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+    #btn-pause {
+      background: var(--accent);
+      color: #fff;
+    }
+    #btn-pause.paused { background: var(--warn); color: #000; }
+    #btn-continue { flex: 1; padding: 12px 18px; background: var(--ok); color: #07130b; font-size: 1rem; }
+    #btn-restart { background: var(--border); color: var(--text); font-size: 0.75rem; }
+
+    /* ── Counts table ──────────────────────────────────────────────── */
+    table { width: 100%; border-collapse: collapse; }
+    th, td {
+      padding: 5px 8px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    th { color: var(--muted); font-weight: 600; font-size: 0.75rem;
+         text-transform: uppercase; letter-spacing: 0.06em; }
+    td:last-child { text-align: right; }
+    .bar-cell { width: 60%; }
+    .bar-wrap { background: var(--border); border-radius: 3px; height: 6px; }
+    .bar-fill { background: var(--accent); border-radius: 3px; height: 6px;
+                transition: width 0.4s ease; }
+
+    /* ── Event log ─────────────────────────────────────────────────── */
+    #log-card { grid-column: 1 / 3; }
+    #log-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      max-height: 260px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .log-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      min-width: 200px;
+      max-width: 260px;
+    }
+    .log-thumb {
+      width: 48px;
+      height: 48px;
+      object-fit: cover;
+      border-radius: 4px;
+      background: #111;
+      flex-shrink: 0;
+    }
+    .log-info { flex: 1; min-width: 0; }
+    .log-label { font-weight: 700; font-size: 0.9rem; }
+    .log-meta  { font-size: 0.72rem; color: var(--muted); white-space: nowrap;
+                 overflow: hidden; text-overflow: ellipsis; }
+    .log-item.uncertain .log-label { color: var(--warn); }
+    .log-item.certain   .log-label { color: var(--ok); }
+
+    /* ── Error banner ──────────────────────────────────────────────── */
+    #error-banner {
+      display: none;
+      background: #450a0a;
+      border: 1px solid var(--err);
+      color: var(--err);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    /* ── Scrollbar ─────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--surface); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h1>♻ Waste Sorter</h1>
+
+  <div id="error-banner"></div>
+
+  <div class="grid">
+
+    <!-- ── Camera stream ───────────────────────────────────────────── -->
+    <div class="card" id="stream-card">
+      <h2>Live view</h2>
+      <img id="stream" src="/stream" alt="camera stream" />
+      <div class="status-row">
+        <span class="pill" id="state-pill">IDLE</span>
+        <span id="fps-badge">0.0 fps</span>
+      </div>
+      <div id="state-message">Ready</div>
+    </div>
+
+    <!-- ── Last decision + controls ────────────────────────────────── -->
+    <div class="card">
+      <h2>Last decision</h2>
+      <div id="last-label" class="certain">—</div>
+      <div id="last-conf">—</div>
+
+      <div class="control-row" style="margin-top:16px;">
+        <label class="slider-label" for="threshold-slider">Threshold</label>
+        <input type="range" id="threshold-slider"
+               min="0.30" max="0.99" step="0.01" value="0.70" />
+        <span id="threshold-val">0.70</span>
+        <button id="btn-apply">Apply</button>
+      </div>
+
+      <div class="control-row">
+        <button id="btn-continue">Continue</button>
+        <button id="btn-restart">Restart</button>
+        <button id="btn-pause">Pause</button>
+      </div>
+    </div>
+
+    <!-- ── Counts table ─────────────────────────────────────────────── -->
+    <div class="card">
+      <h2>Counts</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Class</th>
+            <th class="bar-cell"></th>
+            <th>n</th>
+          </tr>
+        </thead>
+        <tbody id="counts-body"></tbody>
+      </table>
+      <div style="margin-top:8px; font-size:0.78rem; color:var(--muted);">
+        Uncertain: <span id="uncertain-count">0</span>
+        · False triggers: <span id="false-trigger-count">0</span>
+      </div>
+    </div>
+
+    <!-- ── Event log ────────────────────────────────────────────────── -->
+    <div class="card" id="log-card">
+      <h2>Recent events</h2>
+      <div id="log-list"></div>
+    </div>
+
+  </div>
+
+  <script>
+    // ── helpers ──────────────────────────────────────────────────────
+    const $ = id => document.getElementById(id);
+
+    function fmt_ts(ts) {
+      const d = new Date(ts * 1000);
+      return d.toLocaleTimeString();
+    }
+
+    // ── error banner ──────────────────────────────────────────────────
+    function showError(msg) {
+      const el = $('error-banner');
+      if (msg) { el.textContent = '⚠ Camera error: ' + msg; el.style.display = 'block'; }
+      else      { el.style.display = 'none'; }
+    }
+
+    // ── status polling ────────────────────────────────────────────────
+    let paused = false;
+
+    async function pollStatus() {
+      try {
+        const r = await fetch('/api/status');
+        if (!r.ok) return;
+        const d = await r.json();
+
+        showError(d.camera_error || '');
+
+        // state pill
+        const pill = $('state-pill');
+        pill.textContent = d.state;
+        pill.className   = 'pill ' + d.state;
+        $('state-message').textContent = d.message || (d.state === 'IDLE' ? 'Ready' : '');
+
+        $('fps-badge').textContent = d.fps.toFixed(1) + ' fps';
+
+        // pause button
+        paused = d.paused;
+        const btn = $('btn-pause');
+        btn.textContent = paused ? 'Resume' : 'Pause';
+        btn.classList.toggle('paused', paused);
+
+        // last decision
+        if (d.last_event) {
+          const e   = d.last_event;
+          const lbl = $('last-label');
+          lbl.textContent = e.label;
+          lbl.className   = e.uncertain ? 'uncertain' : 'certain';
+          $('last-conf').textContent =
+            (e.confidence * 100).toFixed(1) + '% confidence' +
+            (e.uncertain ? ' · uncertain' : '');
+        }
+      } catch (_) {}
+    }
+
+    // ── stats ─────────────────────────────────────────────────────────
+    async function pollStats() {
+      try {
+        const r = await fetch('/api/stats');
+        if (!r.ok) return;
+        const d = await r.json();
+
+        const total = Math.max(d.total, 1);
+        const tbody = $('counts-body');
+        tbody.innerHTML = '';
+        for (const [cls, n] of Object.entries(d.counts).sort((a,b) => b[1]-a[1])) {
+          const pct = (n / total * 100).toFixed(0);
+          tbody.insertAdjacentHTML('beforeend', `
+            <tr>
+              <td>${cls}</td>
+              <td class="bar-cell">
+                <div class="bar-wrap">
+                  <div class="bar-fill" style="width:${pct}%"></div>
+                </div>
+              </td>
+              <td>${n}</td>
+            </tr>`);
+        }
+        $('uncertain-count').textContent = d.uncertain_count;
+        $('false-trigger-count').textContent = d.false_trigger_count;
+      } catch (_) {}
+    }
+
+    // ── event log ─────────────────────────────────────────────────────
+    let _lastLogTs = 0;
+
+    async function pollLog() {
+      try {
+        const r = await fetch('/api/log?n=30');
+        if (!r.ok) return;
+        const d = await r.json();
+        if (!d.events.length) return;
+        if (d.events[0].ts === _lastLogTs) return;   // nothing new
+        _lastLogTs = d.events[0].ts;
+
+        const list = $('log-list');
+        list.innerHTML = '';
+        for (const [i, e] of d.events.entries()) {
+          const unc = e.uncertain ? 'uncertain' : 'certain';
+          list.insertAdjacentHTML('beforeend', `
+            <div class="log-item ${unc}">
+              <img class="log-thumb" src="${e.thumb_url}" alt="thumb"
+                   onerror="this.style.display='none'" />
+              <div class="log-info">
+                <div class="log-label">${e.label}</div>
+                <div class="log-meta">
+                  ${(e.confidence*100).toFixed(1)}%
+                  · ${fmt_ts(e.ts)}
+                  ${e.uncertain ? '· ?' : ''}
+                </div>
+              </div>
+            </div>`);
+        }
+      } catch (_) {}
+    }
+
+    // ── threshold slider ──────────────────────────────────────────────
+    const slider = $('threshold-slider');
+    const tval   = $('threshold-val');
+    slider.addEventListener('input', () => {
+      tval.textContent = parseFloat(slider.value).toFixed(2);
+    });
+    $('btn-apply').addEventListener('click', async () => {
+      const thr = parseFloat(slider.value);
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({confidence_threshold: thr}),
+      });
+    });
+
+    // ── pause button ──────────────────────────────────────────────────
+    $('btn-pause').addEventListener('click', async () => {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({paused: !paused}),
+      });
+      pollStatus();
+    });
+
+    // Continue and Restart are intentionally unauthenticated for now.
+    // TODO: add the PIN check for later phone-control work.
+    async function sendControlRequest(path) {
+      try {
+        const response = await fetch(path, {method: 'POST'});
+        if (!response.ok) {
+          const body = await response.json();
+          showError(body.detail || 'Control request failed');
+        } else {
+          showError('');
+        }
+        pollStatus();
+      } catch (_) {
+        showError('Could not send control request');
+      }
+    }
+    $('btn-continue').addEventListener('click', () => sendControlRequest('/api/continue'));
+    $('btn-restart').addEventListener('click', () => sendControlRequest('/api/restart'));
+
+    // ── bootstrap initial threshold from server ───────────────────────
+    (async () => {
+      try {
+        const r = await fetch('/api/status');
+        if (r.ok) {
+          const d = await r.json();
+          if (d.confidence_threshold != null) {
+            slider.value = d.confidence_threshold;
+            tval.textContent = d.confidence_threshold.toFixed(2);
+          }
+        }
+      } catch (_) {}
+    })();
+
+    // ── polling intervals ─────────────────────────────────────────────
+    setInterval(pollStatus, 1000);
+    setInterval(pollStats,  2000);
+    setInterval(pollLog,    1500);
+
+    // immediate first load
+    pollStatus();
+    pollStats();
+    pollLog();
+  </script>
+</body>
+</html>

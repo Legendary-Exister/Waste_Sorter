@@ -1,0 +1,39 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Datasets: downloaded and generated images stay local
+data/
+
+# Model checkpoints and binaries: labels.json and metrics are kept, weights/backups are not
+models/*.pt
+models/*.pth
+models/*.onnx
+models/*.onnx.data
+models/_backup*/
+models/errors/
+
+# Python bytecode and testing caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Agent skills / internal workflow cache
+skills/
+
+# Private conversation history
+ChatHistory_OnlyReadWhenAsked.md

@@ -1,0 +1,43 @@
+# Output labels, in model output order. Keep synchronized with models/labels.json.
+classes: [plastic, paper, metal, glass, other, empty]
+seed: 42
+
+# Inference and camera settings.
+image_size: 224             # square resize fed to the classifier
+confidence_threshold: 0.3   # below this a prediction is flagged uncertain
+camera_index: 0             # OpenCV camera device index
+roi: [50, 50, 550, 400]                     # [x, y, w, h] region of interest, or null for the full frame
+empty_diff_threshold: 0.02  # frame-difference level that counts as "something on the tray"
+release_threshold: 0.03     # WAIT_CLEAR release threshold; default is 1.5x empty_diff_threshold
+reference_alpha: 0.02       # EMA rate for calm empty-reference updates while IDLE
+clear_timeout_s: 20.0       # show the Continue instruction after this many seconds in WAIT_CLEAR
+stable_frames: 5            # frames an item must stay settled before it is classified
+vote_frames: 9              # frames voted over to pick the final label
+serial_port:                # e.g. COM3 or /dev/ttyUSB0; null disables the hardware link
+
+# Web dashboard bind address.
+server:
+  host: 127.0.0.1
+  port: 8000
+
+# Data and model locations, relative to the project root.
+paths:
+  data_root: data
+  processed_root: data/processed
+  raw_root: data/raw
+  own_root: data/own
+  class_map: data/class_map.yaml
+  trashnet_archive: data/trashnet/dataset-resized.zip
+  combined_root: data/combined/data
+  labels: models/labels.json
+  checkpoint: models/model.pt
+  onnx: models/model.onnx
+
+thresholds:
+  min_images_per_class: 150
+  test_fraction: 0.15
+  validation_fraction: 0.15
+  max_image_side: 256    # longest side after resize, in pixels
+  jpeg_quality: 90       # quality used when writing processed JPEGs
+
+# Source folder names are mapped to classes by data/class_map.yaml (paths.class_map).

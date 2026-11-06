@@ -3,8 +3,10 @@
 venv/
 env/
 
-# Datasets: downloaded and generated images stay local
-data/
+# Downloaded and generated datasets stay local; keep the project-owned photos.
+data/*
+!data/own/
+!data/Empty tray pics/
 
 # Model checkpoints and binaries: labels.json and metrics are kept, weights/backups are not
 models/*.pt

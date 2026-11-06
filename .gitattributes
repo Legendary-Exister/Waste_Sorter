@@ -1,0 +1,5 @@
+models/model.onnx filter=lfs diff=lfs merge=lfs -text
+models/model.onnx.data filter=lfs diff=lfs merge=lfs -text
+data/own/** filter=lfs diff=lfs merge=lfs -text
+data/Empty[[:space:]]tray[[:space:]]pics/** filter=lfs diff=lfs merge=lfs -text
+models/best.pt filter=lfs diff=lfs merge=lfs -text
